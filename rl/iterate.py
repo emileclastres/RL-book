@@ -79,6 +79,27 @@ def converged(values: Iterator[X],
 
     return result
 
+def converged_counted(values: Iterator[X],
+                    done: Callable[[X, X], bool]) -> X:
+    '''Return the final value of the given iterator and prints the number of iterations when its values
+    converge according to the done function.
+
+    Raises an error if the iterator is empty.
+
+    Will loop forever if the input iterator doesn't end *or* converge.
+    '''
+    result = None
+    count:int = 0
+    for val in converge(values, done):
+        count+=1
+        result = val
+
+    if result is None:
+        raise ValueError("converged called on an empty iterator")
+    else:
+        print(f"Converged in {count} iterations.")
+    return result
+
 
 def accumulate(
         iterable: Iterable[X],

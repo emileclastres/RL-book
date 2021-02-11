@@ -2,7 +2,7 @@ import numpy as np
 import operator
 from typing import Mapping, Iterator, TypeVar, Tuple, Dict
 
-from rl.iterate import converged, iterate
+from rl.iterate import converged, converged_counted, iterate
 from rl.markov_decision_process import (FiniteMarkovDecisionProcess,
                                         FiniteMarkovRewardProcess,
                                         FinitePolicy)
@@ -20,7 +20,7 @@ V = Mapping[S, float]
 
 def evaluate_mrp(
     mrp: FiniteMarkovRewardProcess[S],
-    gamma: float
+    gamma: float,
 ) -> Iterator[np.ndarray]:
     '''Iteratively calculate the value function for the give Markov reward
     process.
@@ -122,8 +122,12 @@ def almost_equal_vf_pis(
 def policy_iteration_result(
     mdp: FiniteMarkovDecisionProcess[S, A],
     gamma: float,
+    print_steps: bool = False
 ) -> Tuple[V[S], FinitePolicy[S, A]]:
-    return converged(policy_iteration(mdp, gamma), done=almost_equal_vf_pis)
+    if not print_steps:
+        return converged(policy_iteration(mdp, gamma), done=almost_equal_vf_pis)
+    else:
+        return converged_counted(policy_iteration(mdp, gamma), done=almost_equal_vf_pis)
 
 
 def value_iteration(
@@ -157,12 +161,19 @@ def almost_equal_vfs(
 
 def value_iteration_result(
     mdp: FiniteMarkovDecisionProcess[S, A],
-    gamma: float
+    gamma: float,
+    print_steps: bool = False
 ) -> Tuple[V[S], FinitePolicy[S, A]]:
-    opt_vf: V[S] = converged(
-        value_iteration(mdp, gamma),
-        done=almost_equal_vfs
-    )
+    if not print_steps:
+        opt_vf: V[S] = converged(
+            value_iteration(mdp, gamma),
+            done=almost_equal_vfs
+        )
+    else:
+        opt_vf: V[S] = converged_counted(
+            value_iteration(mdp, gamma),
+            done=almost_equal_vfs
+        )
     opt_policy: FinitePolicy[S, A] = greedy_policy_from_vf(
         mdp,
         opt_vf,
