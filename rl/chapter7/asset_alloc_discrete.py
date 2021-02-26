@@ -18,7 +18,7 @@ class AssetAllocDiscrete:
     feature_functions: Sequence[Callable[[Tuple[float, float]], float]]
     dnn_spec: DNNSpec
     initial_wealth_distribution: Distribution[float]
-
+    all_gaussian : bool  = False
     def time_steps(self) -> int:
         return len(self.risky_return_distributions)
 
@@ -78,21 +78,37 @@ class AssetAllocDiscrete:
             adam_gradient=adam_gradient
         )
 
+
     def get_states_distribution(self, t: int) -> SampledDistribution[float]:
-
-        actions_distr: Choose[float] = self.uniform_actions()
-
-        def states_sampler_func() -> float:
-            wealth: float = self.initial_wealth_distribution.sample()
+        if self.all_gaussian:
+            actions_distr: Choose[float] = self.uniform_actions()
+    
+            wealth: float = self.initial_wealth_distribution
+            μ, σ = wealth.μ, wealth.σ
             for i in range(t):
                 distr: Distribution[float] = self.risky_return_distributions[i]
                 rate: float = self.riskless_returns[i]
                 alloc: float = actions_distr.sample()
-                wealth = alloc * (1 + distr.sample()) + \
-                    (wealth - alloc) * (1 + rate)
-            return wealth
+                μ = alloc * (1 + distr.μ) + (μ - alloc)*(1+rate)
+                #assuming independance : 
+                σ = np.abs(alloc) * distr.σ + (σ) * np.abs(1 + rate)
+                    
+            return Gaussian(μ, σ)
+        else:
+            actions_distr: Choose[float] = self.uniform_actions()
 
-        return SampledDistribution(states_sampler_func)
+            def states_sampler_func() -> float:
+                wealth: float = self.initial_wealth_distribution.sample()
+                for i in range(t):
+                    distr: Distribution[float] = self.risky_return_distributions[i]
+                    rate: float = self.riskless_returns[i]
+                    alloc: float = actions_distr.sample()
+                    wealth = alloc * (1 + distr.sample()) + \
+                        (wealth - alloc) * (1 + rate)
+                return wealth
+    
+            return SampledDistribution(states_sampler_func)
+
 
     def backward_induction_qvf(self) -> \
             Iterator[DNNApprox[Tuple[float, float]]]:
@@ -211,7 +227,8 @@ if __name__ == '__main__':
         risky_alloc_choices=alloc_choices,
         feature_functions=feature_funcs,
         dnn_spec=dnn,
-        initial_wealth_distribution=init_wealth_distr
+        initial_wealth_distribution=init_wealth_distr,
+        all_gaussian = True
     )
 
     # vf_ff: Sequence[Callable[[float], float]] = [lambda _: 1., lambda w: w]
